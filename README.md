@@ -1,79 +1,174 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# AttendIt - Modern Attendance Management App
 
-# Getting Started
+A scalable, modern attendance management application built with React Native and Firebase, designed to handle 1000+ employees efficiently.
 
->**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
+## 🚀 Features
 
-## Step 1: Start the Metro Server
+### 🔐 Authentication
+- Secure admin login via Firebase Auth
+- Single admin access control
 
-First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
+### 👥 Employee Management
+- Complete CRUD operations for employees
+- Searchable, paginated employee list
+- Optimized for 1000+ employees
+- Employee details: name, email, department, position, employee ID
 
-To start Metro, run the following command from the _root_ of your React Native project:
+### 📅 Attendance Management
+- Daily attendance marking with intuitive toggle switches
+- Date navigation (previous/next day)
+- Bulk actions (mark all present/absent)
+- Default status: absent if not marked
+- Batch writes for optimal performance
 
-```bash
-# using npm
-npm start
+### 📊 Reports & Analytics
+- Monthly attendance reports
+- Employee-wise statistics
+- Calendar/table view of attendance data
+- Export options (CSV/PDF)
+- Attendance percentage calculations
 
-# OR using Yarn
-yarn start
+## 🛠 Tech Stack
+
+- **Framework**: React Native 0.75.2
+- **Navigation**: React Navigation 6
+- **State Management**: Zustand
+- **UI Library**: React Native Paper
+- **Icons**: Lucide React Native
+- **Backend**: Firebase (Auth + Firestore)
+- **Language**: TypeScript
+
+## 🏗 Architecture
+
+```
+src/
+├── components/          # Reusable UI components
+├── screens/            # Screen components
+├── store/              # Zustand state management
+├── services/           # Firebase services
+├── types/              # TypeScript type definitions
+├── utils/              # Utility functions
+└── navigation/         # Navigation configuration
 ```
 
-## Step 2: Start your Application
+## 📱 Screens
 
-Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
+1. **Login Screen** - Admin authentication
+2. **Dashboard** - Overview with statistics and quick actions
+3. **Employees** - Employee list with search and pagination
+4. **Add/Edit Employee** - Employee form management
+5. **Attendance** - Daily attendance marking
+6. **Reports** - Monthly attendance reports with export
 
-### For Android
+## 🔥 Firebase Structure
 
+### Collections
+
+#### `employees`
+```javascript
+{
+  id: string,
+  name: string,
+  email: string,
+  department: string,
+  position: string,
+  employeeId: string,
+  createdAt: timestamp,
+  updatedAt: timestamp
+}
+```
+
+#### `attendance`
+```javascript
+// Document ID: YYYY-MM-DD
+{
+  [employeeId]: "present" | "absent",
+  updatedAt: timestamp
+}
+```
+
+## ⚡ Performance Optimizations
+
+- **Pagination**: 20 employees per page with infinite scroll
+- **Batch Operations**: Efficient Firestore batch writes
+- **Indexed Queries**: Optimized Firestore indexes
+- **Date Partitioning**: Attendance data partitioned by date
+- **Efficient State Management**: Minimal re-renders with Zustand
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js >= 18
+- React Native development environment
+- Firebase project
+- Android Studio / Xcode
+
+### Installation
+
+1. **Clone and install dependencies**
 ```bash
-# using npm
+git clone <repository>
+cd AttendIt
+npm install
+```
+
+2. **Firebase Setup**
+   - Create Firebase project
+   - Enable Authentication (Email/Password)
+   - Enable Firestore Database
+   - Add Android/iOS apps
+   - Download config files:
+     - `google-services.json` → `android/app/`
+     - `GoogleService-Info.plist` → `ios/AttendIt/`
+
+3. **iOS Setup** (if targeting iOS)
+```bash
+cd ios && pod install && cd ..
+```
+
+4. **Run the app**
+```bash
+# Android
 npm run android
 
-# OR using Yarn
-yarn android
-```
-
-### For iOS
-
-```bash
-# using npm
+# iOS
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
+For detailed setup instructions, see [SETUP.md](./SETUP.md)
 
-This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
+## 🎨 UI/UX Features
 
-## Step 3: Modifying your App
+- **Modern Design**: Clean, professional interface
+- **Indigo Theme**: Consistent indigo primary color scheme
+- **Responsive**: Optimized for various screen sizes
+- **Intuitive Navigation**: Easy-to-use navigation flow
+- **Loading States**: Smooth loading indicators
+- **Error Handling**: User-friendly error messages
 
-Now that you have successfully run the app, let's modify it.
+## 📈 Scalability
 
-1. Open `App.tsx` in your text editor of choice and edit some lines.
-2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
+- Handles 1000+ employees efficiently
+- Optimized Firestore queries with proper indexing
+- Pagination for large datasets
+- Batch operations for bulk updates
+- Efficient state management
 
-   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+## 🔒 Security
 
-## Congratulations! :tada:
+- Firebase Authentication for secure access
+- Firestore security rules
+- Admin-only access control
+- Data validation on client and server
 
-You've successfully run and modified your React Native App. :partying_face:
+## 📄 License
 
-### Now what?
+This project is licensed under the MIT License.
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
+## 🤝 Contributing
 
-# Troubleshooting
+Contributions are welcome! Please read the contributing guidelines before submitting PRs.
 
-If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+## 📞 Support
 
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+For support and questions, please open an issue in the repository.
