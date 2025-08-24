@@ -18,7 +18,7 @@ import { ReportsScreen } from '../screens/ReportsScreen';
 const Stack = createNativeStackNavigator();
 
 export const AppNavigator: React.FC = () => {
-  const { isAuthenticated, signOut } = useAuthStore();
+  const { isAuthenticated, isLoading, signOut } = useAuthStore();
 
   const handleSignOut = async () => {
     try {
@@ -34,6 +34,10 @@ export const AppNavigator: React.FC = () => {
       onPress={handleSignOut}
     />
   );
+
+  if (isLoading) {
+    return null; // Let App.tsx handle loading state
+  }
 
   if (!isAuthenticated) {
     return (

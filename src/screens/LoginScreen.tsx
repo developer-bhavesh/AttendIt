@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, Animated, Dimensions, Image } from 'react-native';
 import { TextInput, Button, Text, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Lock, Mail, Shield } from 'lucide-react-native';
+import { Lock, Mail, Shield,Eye,EyeOff } from 'lucide-react-native';
 import { useAuthStore } from '../store/authStore';
 
 const { width, height } = Dimensions.get('window');
@@ -54,7 +54,10 @@ export const LoginScreen: React.FC = () => {
           <Animated.View style={[styles.header, { transform: [{ translateY: slideAnim }] }]}>
             <View style={styles.logoContainer}>
               <View style={styles.logoCircle}>
-                <Shield size={32} color="#F59E0B" />
+                <Image
+                source={require('../components/icon.png')}
+                style={styles.logoCircle}
+                />
               </View>
             </View>
             <Text style={styles.title}>AttendIt</Text>
@@ -88,7 +91,7 @@ export const LoginScreen: React.FC = () => {
                 left={<TextInput.Icon icon={() => <Lock size={20} color="#F59E0B" />} />}
                 right={
                   <TextInput.Icon
-                    icon={showPassword ? 'eye-off' : 'eye'}
+                    icon={() => showPassword ? <EyeOff size={20} color="#6B7280" /> : <Eye size={20} color="#6B7280" />}
                     onPress={() => setShowPassword(!showPassword)}
                   />
                 }
@@ -143,17 +146,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FEF3C7',
+    width: 240,
+    height: 240,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
   },
   title: {
     fontSize: 36,
