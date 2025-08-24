@@ -1,4 +1,4 @@
-package com.attendit
+package com.ayinos.attendeit
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

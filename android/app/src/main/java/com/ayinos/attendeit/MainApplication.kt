@@ -1,4 +1,4 @@
-package com.attendit
+package com.ayinos.attendeit
 
 import android.app.Application
 import com.facebook.react.PackageList
