@@ -1,17 +1,22 @@
 import React, { useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { Text, Button, FAB, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Users, Calendar, BarChart3, Clock, Plus, TrendingUp } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
 import { useEmployeeStore } from '../store/employeeStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { formatDisplayDate } from '../utils/dateUtils';
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 const { width } = Dimensions.get('window');
 
 export const DashboardScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const { employees, loadEmployees } = useEmployeeStore();
   const { loadTodayAttendance, attendanceRecords, currentDate } = useAttendanceStore();
   useEffect(() => {
@@ -19,9 +24,22 @@ export const DashboardScreen: React.FC = () => {
     loadTodayAttendance();
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      loadEmployees(true);
+      loadTodayAttendance();
+    }, [])
+  );
+
   const totalEmployees = employees.length;
-  const presentToday = employees.filter(emp => attendanceRecords[emp.id] === 'present').length;
-  const absentToday = employees.filter(emp => attendanceRecords[emp.id] === 'absent').length;
+  const presentToday = employees.filter(emp => {
+    const record = attendanceRecords[emp.id];
+    return record === 'present' || (typeof record === 'object' && record.status === 'present');
+  }).length;
+  const absentToday = employees.filter(emp => {
+    const record = attendanceRecords[emp.id];
+    return record === 'absent' || (typeof record === 'object' && record.status === 'absent');
+  }).length;
   const notMarkedToday = employees.filter(emp => !attendanceRecords[emp.id]).length;
 
   const stats = [
@@ -31,7 +49,7 @@ export const DashboardScreen: React.FC = () => {
       icon: Users,
       color: '#059669',
       bgColor: '#ECFDF5',
-      onPress: () => navigation.navigate('Employees' as never),
+      onPress: () => navigation.navigate('Employees'),
     },
     {
       title: 'Present Today',
@@ -39,7 +57,7 @@ export const DashboardScreen: React.FC = () => {
       icon: Clock,
       color: '#0891B2',
       bgColor: '#F0F9FF',
-      onPress: () => navigation.navigate('Attendance' as never),
+      onPress: () => navigation.navigate('Attendance'),
     },
     {
       title: 'Absent Today',
@@ -47,7 +65,7 @@ export const DashboardScreen: React.FC = () => {
       icon: Calendar,
       color: '#DC2626',
       bgColor: '#FEF2F2',
-      onPress: () => navigation.navigate('Attendance' as never),
+      onPress: () => navigation.navigate('Attendance'),
     },
     {
       title: 'Not Marked',
@@ -55,7 +73,7 @@ export const DashboardScreen: React.FC = () => {
       icon: BarChart3,
       color: '#D97706',
       bgColor: '#FFFBEB',
-      onPress: () => navigation.navigate('Attendance' as never),
+      onPress: () => navigation.navigate('Attendance'),
     },
   ];
 
@@ -93,7 +111,7 @@ export const DashboardScreen: React.FC = () => {
           <Surface style={styles.actionCard} elevation={0}>
             <Button
               mode="contained"
-              onPress={() => navigation.navigate('Attendance' as never)}
+              onPress={() => navigation.navigate('Attendance')}
               style={styles.primaryAction}
               buttonColor="#1F2937"
               labelStyle={styles.primaryActionLabel}
@@ -105,7 +123,7 @@ export const DashboardScreen: React.FC = () => {
             <View style={styles.secondaryActions}>
               <Button
                 mode="outlined"
-                onPress={() => navigation.navigate('Reports' as never)}
+                onPress={() => navigation.navigate('Reports')}
                 style={styles.secondaryButton}
                 textColor="#374151"
                 icon={() => <BarChart3 size={18} color="#374151" />}
@@ -115,7 +133,7 @@ export const DashboardScreen: React.FC = () => {
               
               <Button
                 mode="outlined"
-                onPress={() => navigation.navigate('Employees' as never)}
+                onPress={() => navigation.navigate('Employees')}
                 style={styles.secondaryButton}
                 textColor="#374151"
                 icon={() => <Users size={18} color="#374151" />}
@@ -130,7 +148,7 @@ export const DashboardScreen: React.FC = () => {
       <FAB
         icon={() => <Plus size={24} color="white" />}
         style={styles.fab}
-        onPress={() => navigation.navigate('AddEmployee' as never)}
+        onPress={() => navigation.navigate('AddEmployee')}
         customSize={56}
       />
     </SafeAreaView>

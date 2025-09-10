@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Surface, Text, Button, DataTable, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +16,14 @@ export const ReportsScreen: React.FC = () => {
   useEffect(() => {
     loadMonthlyAttendance(currentMonth.year, currentMonth.month);
   }, [currentMonth]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadMonthlyAttendance(currentMonth.year, currentMonth.month);
+    }, [currentMonth])
+  );
+
+
 
   const handlePreviousMonth = () => {
     setCurrentMonth(getPreviousMonth(currentMonth.year, currentMonth.month));

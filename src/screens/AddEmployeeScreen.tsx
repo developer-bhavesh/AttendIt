@@ -1,21 +1,27 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { TextInput, Button, Text, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { UserPlus, User, Mail, Building, Briefcase, Hash } from 'lucide-react-native';
+import { UserPlus, User, Mail, Phone, Briefcase, Hash, DollarSign, Clock } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
 import { useEmployeeStore } from '../store/employeeStore';
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 export const AddEmployeeScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const { addEmployee } = useEmployeeStore();
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    department: '',
+    mobile: '',
     position: '',
     employeeId: '',
+    hourlyRate: '',
+    standardHours: '8',
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,7 +30,7 @@ export const AddEmployeeScreen: React.FC = () => {
   };
 
   const validateForm = () => {
-    const { name, email, department, position, employeeId } = formData;
+    const { name, email, mobile, position, employeeId } = formData;
     
     if (!name.trim()) {
       Alert.alert('Error', 'Name is required');
@@ -41,8 +47,8 @@ export const AddEmployeeScreen: React.FC = () => {
       return false;
     }
     
-    if (!department.trim()) {
-      Alert.alert('Error', 'Department is required');
+    if (!mobile.trim()) {
+      Alert.alert('Error', 'Mobile number is required');
       return false;
     }
     
@@ -55,6 +61,16 @@ export const AddEmployeeScreen: React.FC = () => {
       Alert.alert('Error', 'Employee ID is required');
       return false;
     }
+
+    if (!formData.hourlyRate.trim()) {
+      Alert.alert('Error', 'Hourly rate is required');
+      return false;
+    }
+    
+    if (!formData.standardHours.trim()) {
+      Alert.alert('Error', 'Standard hours is required');
+      return false;
+    }
     
     return true;
   };
@@ -64,13 +80,18 @@ export const AddEmployeeScreen: React.FC = () => {
 
     setIsLoading(true);
     try {
-      await addEmployee({
+      const employeeData: any = {
         name: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
-        department: formData.department.trim(),
+        mobile: formData.mobile.trim(),
         position: formData.position.trim(),
         employeeId: formData.employeeId.trim(),
-      });
+        salaryType: 'hourly',
+        hourlyRate: parseFloat(formData.hourlyRate),
+        standardHours: parseFloat(formData.standardHours),
+      };
+
+      await addEmployee(employeeData);
       
       Alert.alert('Success', 'Employee added successfully', [
         { text: 'OK', onPress: () => navigation.goBack() }
@@ -126,11 +147,12 @@ export const AddEmployeeScreen: React.FC = () => {
               />
 
               <TextInput
-                label="Department"
-                value={formData.department}
-                onChangeText={(value) => handleInputChange('department', value)}
+                label="Mobile Number"
+                value={formData.mobile}
+                onChangeText={(value) => handleInputChange('mobile', value)}
                 mode="outlined"
-                left={<TextInput.Icon icon={() => <Building size={20} color="#F59E0B" />} />}
+                keyboardType="phone-pad"
+                left={<TextInput.Icon icon={() => <Phone size={20} color="#F59E0B" />} />}
                 style={styles.input}
                 outlineStyle={styles.inputOutline}
                 theme={{ colors: { primary: '#F59E0B', outline: '#E5E7EB' } }}
@@ -157,6 +179,33 @@ export const AddEmployeeScreen: React.FC = () => {
                 outlineStyle={styles.inputOutline}
                 theme={{ colors: { primary: '#F59E0B', outline: '#E5E7EB' } }}
               />
+
+              <View style={styles.salarySection}>
+                <Text style={styles.sectionTitle}>Salary Information</Text>
+                
+                <TextInput
+                  label="Hourly Rate"
+                  value={formData.hourlyRate}
+                  onChangeText={(value) => handleInputChange('hourlyRate', value)}
+                  mode="outlined"
+                  keyboardType="numeric"
+                  left={<TextInput.Icon icon={() => <DollarSign size={20} color="#F59E0B" />} />}
+                  style={styles.input}
+                  outlineStyle={styles.inputOutline}
+                  theme={{ colors: { primary: '#F59E0B', outline: '#E5E7EB' } }}
+                />
+                <TextInput
+                  label="Standard Hours/Day"
+                  value={formData.standardHours}
+                  onChangeText={(value) => handleInputChange('standardHours', value)}
+                  mode="outlined"
+                  keyboardType="numeric"
+                  left={<TextInput.Icon icon={() => <Clock size={20} color="#F59E0B" />} />}
+                  style={styles.input}
+                  outlineStyle={styles.inputOutline}
+                  theme={{ colors: { primary: '#F59E0B', outline: '#E5E7EB' } }}
+                />
+              </View>
 
               <View style={styles.buttonContainer}>
                 <Button
@@ -288,5 +337,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  salarySection: {
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 12,
+  },
+  radioOption: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+  },
+  radioSelected: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FEF3C7',
+  },
+  radioText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  radioTextSelected: {
+    color: '#F59E0B',
+    fontWeight: '600',
   },
 });

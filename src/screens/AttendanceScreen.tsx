@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import { Button, Text, Surface, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar, Save, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react-native';
+import { Calendar, Save, ChevronLeft, ChevronRight, CheckCircle, DollarSign } from 'lucide-react-native';
 import { useEmployeeStore } from '../store/employeeStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { AttendanceToggle } from '../components/AttendanceToggle';
@@ -41,8 +41,15 @@ export const AttendanceScreen: React.FC = () => {
     setCurrentDate(newDate);
   };
 
-  const handleToggleAttendance = (employeeId: string, isPresent: boolean) => {
-    markAttendance(employeeId, isPresent ? 'present' : 'absent');
+  const handleToggleAttendance = (employeeId: string, isPresent: boolean, overtimeHours?: number) => {
+    if (isPresent && overtimeHours !== undefined && overtimeHours > 0) {
+      markAttendance(employeeId, {
+        status: 'present',
+        overtimeHours: overtimeHours,
+      });
+    } else {
+      markAttendance(employeeId, isPresent ? 'present' : 'absent');
+    }
   };
 
   const handleSaveAttendance = async () => {
@@ -70,21 +77,46 @@ export const AttendanceScreen: React.FC = () => {
   };
 
   const renderEmployee = ({ item }: { item: Employee }) => {
-    const isPresent = attendanceRecords[item.id] === 'present';
+    const record = attendanceRecords[item.id];
+    const isPresent = record === 'present' || (typeof record === 'object' && record.status === 'present');
+    const overtimeHours = typeof record === 'object' ? record.overtimeHours : 0;
     
     return (
       <AttendanceToggle
         employee={item}
         isPresent={isPresent}
+        overtimeHours={overtimeHours}
         onToggle={handleToggleAttendance}
       />
     );
   };
 
-  const presentCount = employees.filter(emp => attendanceRecords[emp.id] === 'present').length;
-  const absentCount = employees.filter(emp => attendanceRecords[emp.id] === 'absent').length;
+  const presentCount = employees.filter(emp => {
+    const record = attendanceRecords[emp.id];
+    return record === 'present' || (typeof record === 'object' && record.status === 'present');
+  }).length;
+  
+  const absentCount = employees.filter(emp => {
+    const record = attendanceRecords[emp.id];
+    return record === 'absent' || (typeof record === 'object' && record.status === 'absent');
+  }).length;
+  
   const totalCount = employees.length;
   const notMarkedCount = employees.filter(emp => !attendanceRecords[emp.id]).length;
+  
+  const totalDailyEarnings = employees.reduce((total, emp) => {
+    const record = attendanceRecords[emp.id];
+    const isPresent = record === 'present' || (typeof record === 'object' && record.status === 'present');
+    
+    if (!isPresent) return total;
+    
+    const standardHours = emp.standardHours || 8;
+    const overtimeHours = typeof record === 'object' ? (record.overtimeHours || 0) : 0;
+    const regularEarnings = standardHours * (emp.hourlyRate || 0);
+    const overtimeEarnings = overtimeHours * (emp.hourlyRate || 0);
+    
+    return total + regularEarnings + overtimeEarnings;
+  }, 0);
 
   if (isLoading && employees.length === 0) {
     return <LoadingSpinner message="Loading attendance data..." />;
@@ -142,6 +174,16 @@ export const AttendanceScreen: React.FC = () => {
             </View>
           </View>
         </Surface>
+
+        {totalDailyEarnings > 0 && (
+          <Surface style={styles.earningsCard} elevation={0}>
+            <View style={styles.earningsContent}>
+              <DollarSign size={20} color="#10b981" />
+              <Text style={styles.earningsLabel}>Today's Total Earnings</Text>
+              <Text style={styles.earningsValue}>₹{totalDailyEarnings.toFixed(2)}</Text>
+            </View>
+          </Surface>
+        )}
 
         <View style={styles.actionButtons}>
           <Button
@@ -335,5 +377,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  earningsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 12,
+    width: '100%',
+  },
+  earningsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  earningsLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  earningsValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#10b981',
   },
 });

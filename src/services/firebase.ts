@@ -64,7 +64,7 @@ export const employeeService = {
       employees = employees.filter(emp => 
         emp.name.toLowerCase().includes(lowerQuery) ||
         emp.email.toLowerCase().includes(lowerQuery) ||
-        emp.department.toLowerCase().includes(lowerQuery) ||
+        emp.mobile.toLowerCase().includes(lowerQuery) ||
         emp.position.toLowerCase().includes(lowerQuery) ||
         emp.employeeId.toLowerCase().includes(lowerQuery)
       );

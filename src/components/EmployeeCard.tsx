@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Surface, Text, IconButton } from 'react-native-paper';
-import { User, Mail, Building, Briefcase, Edit, Trash2, BarChart3 } from 'lucide-react-native';
+import { User, Mail, Phone, Briefcase, Edit, Trash2, BarChart3, DollarSign } from 'lucide-react-native';
 import { Employee } from '../types';
 
 interface EmployeeCardProps {
@@ -59,13 +59,20 @@ export const EmployeeCard: React.FC<EmployeeCardProps> = ({
         </View>
         
         <View style={styles.detailRow}>
-          <Building size={16} color="#6B7280" />
-          <Text style={styles.detailText}>{employee.department}</Text>
+          <Phone size={16} color="#6B7280" />
+          <Text style={styles.detailText}>{employee.mobile}</Text>
         </View>
         
         <View style={styles.detailRow}>
           <Briefcase size={16} color="#6B7280" />
           <Text style={styles.detailText}>{employee.position}</Text>
+        </View>
+        
+        <View style={styles.detailRow}>
+          <DollarSign size={16} color="#6B7280" />
+          <Text style={styles.detailText}>
+            ₹{employee.hourlyRate}/hr ({employee.standardHours}h/day)
+          </Text>
         </View>
       </View>
     </Surface>

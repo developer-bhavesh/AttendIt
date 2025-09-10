@@ -2,23 +2,47 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Surface, Text, DataTable, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, ChevronRight, User, UserCheck } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, User, UserCheck, DollarSign, Clock, TrendingUp } from 'lucide-react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { getCurrentMonth, getMonthName, getPreviousMonth, getNextMonth, getMonthDates } from '../utils/dateUtils';
 import { Employee } from '../types';
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type RouteProps = NativeStackScreenProps<RootStackParamList, 'EmployeeReport'>['route'];
+
 export const EmployeeReportScreen: React.FC = () => {
-  const route = useRoute();
-  const navigation = useNavigation();
-  const employee = (route.params as any)?.employee as Employee;
+  const route = useRoute<RouteProps>();
+  const navigation = useNavigation<NavigationProp>();
+  const employee = route.params?.employee;
   const { monthlyData, isLoading, loadMonthlyAttendance } = useAttendanceStore();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
+  const [dailyAttendanceData, setDailyAttendanceData] = useState<{[date: string]: any}>({});
 
   useEffect(() => {
     loadMonthlyAttendance(currentMonth.year, currentMonth.month);
+    loadDailyAttendanceData();
   }, [currentMonth]);
+
+  const loadDailyAttendanceData = async () => {
+    const { attendanceService } = require('../services/firebase');
+    const dailyData: { [date: string]: any } = {};
+    
+    for (const date of monthDates) {
+      try {
+        const dayRecord = await attendanceService.getAttendanceByDate(date);
+        if (dayRecord[employee.id]) {
+          dailyData[date] = dayRecord[employee.id];
+        }
+      } catch (error) {
+        console.log('Error loading daily data for', date);
+      }
+    }
+    setDailyAttendanceData(dailyData);
+  };
 
   useEffect(() => {
     // Refresh when screen comes into focus
@@ -39,6 +63,35 @@ export const EmployeeReportScreen: React.FC = () => {
   const employeeData = monthlyData.find(emp => emp.employeeId === employee.id);
   const monthDates = getMonthDates(currentMonth.year, currentMonth.month);
 
+
+
+  // Calculate comprehensive salary data
+  const calculateMonthlySalary = () => {
+    const standardHours = employee.standardHours || 8;
+    const hourlyRate = employee.hourlyRate || 0;
+    const totalRegularHours = employeeData?.totalRegularHours || 0;
+    const totalOvertimeHours = employeeData?.totalOvertimeHours || 0;
+    
+    const regularEarnings = totalRegularHours * hourlyRate;
+    const overtimeEarnings = totalOvertimeHours * hourlyRate * 1.5;
+    const totalEarnings = regularEarnings + overtimeEarnings;
+    
+    return {
+      baseSalary: regularEarnings,
+      totalEarnings,
+      regularHours: totalRegularHours,
+      overtimeHours: totalOvertimeHours,
+      overtimeEarnings,
+      deductions: 0,
+      workingDays: employeeData?.presentDays || 0,
+      totalWorkingDays: monthDates.length,
+      hourlyRate,
+      standardHours,
+    };
+  };
+
+  const salaryData = calculateMonthlySalary();
+
   if (isLoading) {
     return <LoadingSpinner message="Loading employee report..." />;
   }
@@ -53,7 +106,7 @@ export const EmployeeReportScreen: React.FC = () => {
             </View>
           </View>
           <Text style={styles.title}>{employee.name}</Text>
-          <Text style={styles.subtitle}>{employee.department}</Text>
+          <Text style={styles.subtitle}>{employee.mobile}</Text>
           <Text style={styles.description}>{employee.position} • ID: {employee.employeeId}</Text>
         </View>
 
@@ -79,7 +132,7 @@ export const EmployeeReportScreen: React.FC = () => {
           <View>
             <Surface style={styles.summaryCard} elevation={0}>
               <Text style={styles.summaryTitle}>
-                Monthly Summary
+                Attendance Summary
               </Text>
               <View style={styles.summaryGrid}>
                 <View style={styles.summaryItem}>
@@ -102,42 +155,168 @@ export const EmployeeReportScreen: React.FC = () => {
                 </View>
               </View>
             </Surface>
+
+            <Surface style={styles.salaryCard} elevation={0}>
+              <View style={styles.salaryHeader}>
+                <DollarSign size={24} color="#10b981" />
+                <Text style={styles.salaryTitle}>Salary Report</Text>
+              </View>
+              
+              <View style={styles.salaryDetails}>
+                <View style={styles.salaryRow}>
+                  <Text style={styles.salaryLabel}>Salary Type:</Text>
+                  <Text style={styles.salaryValue}>Hourly</Text>
+                </View>
+                
+                <View style={styles.salaryRow}>
+                  <Text style={styles.salaryLabel}>Hourly Rate:</Text>
+                  <Text style={styles.salaryValue}>₹{salaryData.hourlyRate}/hr</Text>
+                </View>
+                <View style={styles.salaryRow}>
+                  <Text style={styles.salaryLabel}>Standard Hours/Day:</Text>
+                  <Text style={styles.salaryValue}>{salaryData.standardHours}h</Text>
+                </View>
+                <View style={styles.salaryRow}>
+                  <Text style={styles.salaryLabel}>Total Hours:</Text>
+                  <Text style={styles.salaryValue}>{salaryData.regularHours}h</Text>
+                </View>
+                <View style={styles.salaryRow}>
+                  <Text style={styles.salaryLabel}>Regular Earnings:</Text>
+                  <Text style={styles.salaryValue}>₹{salaryData.baseSalary.toFixed(2)}</Text>
+                </View>
+                {salaryData.overtimeHours > 0 && (
+                  <>
+                    <View style={styles.salaryRow}>
+                      <Text style={styles.salaryLabel}>Overtime Hours:</Text>
+                      <Text style={styles.salaryValue}>{salaryData.overtimeHours}h</Text>
+                    </View>
+                    <View style={styles.salaryRow}>
+                      <Text style={styles.salaryLabel}>Overtime Earnings:</Text>
+                      <Text style={styles.salaryValue}>₹{salaryData.overtimeEarnings.toFixed(2)}</Text>
+                    </View>
+                  </>
+                )}
+                
+                <View style={styles.divider} />
+                
+                <View style={[styles.salaryRow, styles.totalRow]}>
+                  <Text style={styles.totalLabel}>Total Earnings:</Text>
+                  <Text style={styles.totalValue}>₹{salaryData.totalEarnings.toFixed(2)}</Text>
+                </View>
+                
+                <View style={[styles.salaryRow, styles.netRow]}>
+                  <Text style={styles.netLabel}>Net Salary:</Text>
+                  <Text style={styles.netValue}>
+                    ₹{salaryData.totalEarnings.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            </Surface>
           </View>
         )}
 
         <View>
           <Surface style={styles.calendarCard} elevation={0}>
             <Text style={styles.calendarTitle}>
-              Daily Attendance
+              Daily Salary Report
             </Text>
-            <DataTable>
-              <DataTable.Header>
-                <DataTable.Title>Date</DataTable.Title>
-                <DataTable.Title>Day</DataTable.Title>
-                <DataTable.Title>Status</DataTable.Title>
+            <DataTable style={styles.dataTable}>
+              <DataTable.Header style={styles.tableHeader}>
+                <DataTable.Title textStyle={styles.headerText}>Date</DataTable.Title>
+                <DataTable.Title textStyle={styles.headerText}>Status</DataTable.Title>
+                <DataTable.Title numeric textStyle={styles.headerText}>Total Hours</DataTable.Title>
+                <DataTable.Title numeric textStyle={styles.headerText}>Earnings</DataTable.Title>
               </DataTable.Header>
 
               {monthDates.map((date) => {
-                const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'short' });
                 const dayNumber = new Date(date).getDate();
                 const status = employeeData?.dailyRecords[date] || 'absent';
+                const isPresent = status === 'present';
+                
+                // Get actual overtime from daily attendance data
+                const dailyRecord = dailyAttendanceData[date];
+                let overtimeHours = 0;
+                
+                if (isPresent && dailyRecord) {
+                  if (typeof dailyRecord === 'object' && dailyRecord.overtimeHours) {
+                    overtimeHours = dailyRecord.overtimeHours;
+                  }
+                }
+                
+                const regularHours = isPresent ? employee.standardHours : 0;
+                const totalHours = regularHours + overtimeHours;
+                const regularEarnings = regularHours * employee.hourlyRate;
+                const overtimeEarnings = overtimeHours * employee.hourlyRate * 1.5;
+                const dailyEarnings = regularEarnings + overtimeEarnings;
                 
                 return (
-                  <DataTable.Row key={date}>
-                    <DataTable.Cell>{dayNumber}</DataTable.Cell>
-                    <DataTable.Cell>{dayName}</DataTable.Cell>
+                  <DataTable.Row key={date} style={styles.tableRow}>
+                    <DataTable.Cell>
+                      <Text style={styles.dateText}>{dayNumber}</Text>
+                    </DataTable.Cell>
                     <DataTable.Cell>
                       <Text style={[
                         styles.statusText,
-                        status === 'present' ? styles.presentStatus : styles.absentStatus
+                        isPresent ? styles.presentStatus : styles.absentStatus
                       ]}>
-                        {status === 'present' ? 'Present' : 'Absent'}
+                        {isPresent ? 'Present' : 'Absent'}
                       </Text>
+                    </DataTable.Cell>
+                    <DataTable.Cell numeric>
+                      <View style={styles.hoursBreakdown}>
+                        <Text style={styles.totalHoursText}>{totalHours.toFixed(1)}h</Text>
+                        {overtimeHours > 0 && (
+                          <Text style={styles.overtimeText}>({regularHours}h + {overtimeHours.toFixed(1)}h OT)</Text>
+                        )}
+                      </View>
+                    </DataTable.Cell>
+                    <DataTable.Cell numeric>
+                      <View style={styles.earningsBreakdown}>
+                        <Text style={[
+                          styles.earningsText,
+                          isPresent ? styles.positiveEarnings : styles.zeroEarnings
+                        ]}>
+                          ₹{dailyEarnings.toFixed(2)}
+                        </Text>
+                        {overtimeHours > 0 && (
+                          <Text style={styles.overtimeEarningsText}>
+                            (₹{overtimeEarnings.toFixed(2)} OT)
+                          </Text>
+                        )}
+                      </View>
                     </DataTable.Cell>
                   </DataTable.Row>
                 );
               })}
             </DataTable>
+            
+            <View style={styles.dailySummary}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryRowLabel}>Total Working Days:</Text>
+                <Text style={styles.summaryRowValue}>{employeeData?.presentDays || 0}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryRowLabel}>Total Hours Worked:</Text>
+                <Text style={styles.summaryRowValue}>
+                  {(salaryData.regularHours + salaryData.overtimeHours).toFixed(1)}h
+                  {salaryData.overtimeHours > 0 && (
+                    <Text style={styles.summaryBreakdown}>
+                      {' '}({salaryData.regularHours}h + {salaryData.overtimeHours.toFixed(1)}h OT)
+                    </Text>
+                  )}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryRowLabel}>Average Daily Earnings:</Text>
+                <Text style={styles.summaryRowValue}>
+                  ₹{employeeData?.presentDays ? (salaryData.totalEarnings / employeeData.presentDays).toFixed(2) : '0.00'}
+                </Text>
+              </View>
+              <View style={[styles.summaryRow, styles.totalSummaryRow]}>
+                <Text style={styles.totalSummaryLabel}>Monthly Total:</Text>
+                <Text style={styles.totalSummaryValue}>₹{salaryData.totalEarnings.toFixed(2)}</Text>
+              </View>
+            </View>
           </Surface>
         </View>
       </ScrollView>
@@ -263,6 +442,91 @@ const styles = StyleSheet.create({
   percentageText: {
     color: '#F59E0B',
   },
+  salaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 24,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  salaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  salaryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 8,
+  },
+  salaryDetails: {
+    gap: 12,
+  },
+  salaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  salaryLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  salaryValue: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 8,
+  },
+  totalRow: {
+    paddingTop: 8,
+  },
+  totalLabel: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  totalValue: {
+    fontSize: 18,
+    color: '#10b981',
+    fontWeight: '700',
+  },
+  deductionLabel: {
+    fontSize: 14,
+    color: '#ef4444',
+    fontWeight: '500',
+  },
+  deductionValue: {
+    fontSize: 14,
+    color: '#ef4444',
+    fontWeight: '600',
+  },
+  netRow: {
+    backgroundColor: '#F3F4F6',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  netLabel: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  netValue: {
+    fontSize: 18,
+    color: '#059669',
+    fontWeight: '700',
+  },
   calendarCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -295,5 +559,110 @@ const styles = StyleSheet.create({
   absentStatus: {
     color: '#ef4444',
     backgroundColor: '#fecaca',
+  },
+  hoursText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  earningsText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  positiveEarnings: {
+    color: '#10b981',
+  },
+  zeroEarnings: {
+    color: '#6B7280',
+  },
+  dailySummary: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  summaryRowLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  summaryRowValue: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  totalSummaryRow: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  totalSummaryLabel: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  totalSummaryValue: {
+    fontSize: 18,
+    color: '#10b981',
+    fontWeight: '700',
+  },
+  dataTable: {
+    backgroundColor: '#FAFAF9',
+    borderRadius: 12,
+  },
+  tableHeader: {
+    backgroundColor: '#F3F4F6',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  headerText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  tableRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingVertical: 8,
+  },
+  dateText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  hoursBreakdown: {
+    alignItems: 'flex-end',
+  },
+  totalHoursText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  overtimeText: {
+    fontSize: 11,
+    color: '#F59E0B',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  earningsBreakdown: {
+    alignItems: 'flex-end',
+  },
+  overtimeEarningsText: {
+    fontSize: 11,
+    color: '#F59E0B',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  summaryBreakdown: {
+    fontSize: 12,
+    color: '#F59E0B',
+    fontWeight: '500',
   },
 });

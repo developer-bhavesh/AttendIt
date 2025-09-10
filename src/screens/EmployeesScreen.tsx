@@ -4,13 +4,17 @@ import { Searchbar, FAB, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Users, Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/navigation';
 import { useEmployeeStore } from '../store/employeeStore';
 import { EmployeeCard } from '../components/EmployeeCard';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { Employee } from '../types';
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 export const EmployeesScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const {
     employees,
     isLoading,
@@ -54,11 +58,11 @@ export const EmployeesScreen: React.FC = () => {
   };
 
   const handleEdit = (employee: Employee) => {
-    navigation.navigate('EditEmployee' as never, { employee } as never);
+    navigation.navigate('EditEmployee', { employee });
   };
 
   const handleViewReport = (employee: Employee) => {
-    navigation.navigate('EmployeeReport' as never, { employee } as never);
+    navigation.navigate('EmployeeReport', { employee });
   };
 
   const handleDelete = (employee: Employee) => {
@@ -158,7 +162,7 @@ export const EmployeesScreen: React.FC = () => {
       <FAB
         icon={() => <Plus size={24} color="white" />}
         style={styles.fab}
-        onPress={() => navigation.navigate('AddEmployee' as never)}
+        onPress={() => navigation.navigate('AddEmployee')}
         label="Add Employee"
         color='#fff'
       />
