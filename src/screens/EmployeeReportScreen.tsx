@@ -73,7 +73,7 @@ export const EmployeeReportScreen: React.FC = () => {
     const totalOvertimeHours = employeeData?.totalOvertimeHours || 0;
     
     const regularEarnings = totalRegularHours * hourlyRate;
-    const overtimeEarnings = totalOvertimeHours * hourlyRate * 1.5;
+    const overtimeEarnings = totalOvertimeHours * hourlyRate;
     const totalEarnings = regularEarnings + overtimeEarnings;
     
     return {
@@ -246,7 +246,7 @@ export const EmployeeReportScreen: React.FC = () => {
                 const regularHours = isPresent ? employee.standardHours : 0;
                 const totalHours = regularHours + overtimeHours;
                 const regularEarnings = regularHours * employee.hourlyRate;
-                const overtimeEarnings = overtimeHours * employee.hourlyRate * 1.5;
+                const overtimeEarnings = overtimeHours * employee.hourlyRate;
                 const dailyEarnings = regularEarnings + overtimeEarnings;
                 
                 return (
