@@ -64,3 +64,20 @@ export interface AttendanceState {
   isLoading: boolean;
   monthlyData: MonthlyAttendance[];
 }
+
+export interface Transaction {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string; // YYYY-MM-DD format
+  type: 'credit' | 'debit';
+  amount: number;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TransactionState {
+  transactions: Transaction[];
+  isLoading: boolean;
+}

@@ -9,6 +9,8 @@ export type RootStackParamList = {
   EmployeeReport: { employee: Employee };
   Attendance: undefined;
   Reports: undefined;
+  CreditDebit: undefined;
+  Payslip: undefined;
 };
 
 export {}; // Make this a module

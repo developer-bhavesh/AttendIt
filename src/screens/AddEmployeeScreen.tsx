@@ -30,48 +30,7 @@ export const AddEmployeeScreen: React.FC = () => {
   };
 
   const validateForm = () => {
-    const { name, email, mobile, position, employeeId } = formData;
-    
-    if (!name.trim()) {
-      Alert.alert('Error', 'Name is required');
-      return false;
-    }
-    
-    if (!email.trim()) {
-      Alert.alert('Error', 'Email is required');
-      return false;
-    }
-    
-    if (!email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return false;
-    }
-    
-    if (!mobile.trim()) {
-      Alert.alert('Error', 'Mobile number is required');
-      return false;
-    }
-    
-    if (!position.trim()) {
-      Alert.alert('Error', 'Position is required');
-      return false;
-    }
-    
-    if (!employeeId.trim()) {
-      Alert.alert('Error', 'Employee ID is required');
-      return false;
-    }
-
-    if (!formData.hourlyRate.trim()) {
-      Alert.alert('Error', 'Hourly rate is required');
-      return false;
-    }
-    
-    if (!formData.standardHours.trim()) {
-      Alert.alert('Error', 'Standard hours is required');
-      return false;
-    }
-    
+    // No validation - allow all fields to be optional
     return true;
   };
 
@@ -81,14 +40,14 @@ export const AddEmployeeScreen: React.FC = () => {
     setIsLoading(true);
     try {
       const employeeData: any = {
-        name: formData.name.trim(),
-        email: formData.email.trim().toLowerCase(),
-        mobile: formData.mobile.trim(),
-        position: formData.position.trim(),
-        employeeId: formData.employeeId.trim(),
+        name: formData.name.trim() || 'Unnamed Employee',
+        email: formData.email.trim().toLowerCase() || 'no-email@example.com',
+        mobile: formData.mobile.trim() || 'N/A',
+        position: formData.position.trim() || 'N/A',
+        employeeId: formData.employeeId.trim() || `EMP${Date.now()}`,
         salaryType: 'hourly',
-        hourlyRate: parseFloat(formData.hourlyRate),
-        standardHours: parseFloat(formData.standardHours),
+        hourlyRate: parseFloat(formData.hourlyRate) || 0,
+        standardHours: parseFloat(formData.standardHours) || 8,
       };
 
       await addEmployee(employeeData);

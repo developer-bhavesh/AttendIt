@@ -1,7 +1,7 @@
 import firebase from '@react-native-firebase/app';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
-import { Employee, AttendanceRecord } from '../types';
+import { Employee, AttendanceRecord, Transaction } from '../types';
 
 // Initialize Firebase
 try {
@@ -16,6 +16,7 @@ try {
 export const COLLECTIONS = {
   EMPLOYEES: 'employees',
   ATTENDANCE: 'attendance',
+  TRANSACTIONS: 'transactions',
 } as const;
 
 // Auth Service
@@ -208,10 +209,121 @@ export const attendanceService = {
   },
 };
 
+// Transaction Service
+export const transactionService = {
+  // Add a transaction
+  addTransaction: async (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date();
+    return await firestore()
+      .collection(COLLECTIONS.TRANSACTIONS)
+      .add({
+        ...transaction,
+        createdAt: now,
+        updatedAt: now,
+      });
+  },
+
+  // Get transactions for an employee
+  getEmployeeTransactions: async (employeeId: string, startDate?: string, endDate?: string) => {
+    let query = firestore()
+      .collection(COLLECTIONS.TRANSACTIONS)
+      .where('employeeId', '==', employeeId)
+      .orderBy('date', 'desc');
+
+    if (startDate) {
+      query = query.where('date', '>=', startDate);
+    }
+    if (endDate) {
+      query = query.where('date', '<=', endDate);
+    }
+
+    const snapshot = await query.get();
+    
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate(),
+      updatedAt: doc.data().updatedAt?.toDate(),
+    })) as Transaction[];
+  },
+
+  // Get all transactions for a date range
+  getTransactionsByDateRange: async (startDate: string, endDate: string) => {
+    const snapshot = await firestore()
+      .collection(COLLECTIONS.TRANSACTIONS)
+      .where('date', '>=', startDate)
+      .where('date', '<=', endDate)
+      .orderBy('date', 'desc')
+      .get();
+
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate(),
+      updatedAt: doc.data().updatedAt?.toDate(),
+    })) as Transaction[];
+  },
+
+  // Get transaction by ID
+  getTransactionById: async (id: string) => {
+    const doc = await firestore()
+      .collection(COLLECTIONS.TRANSACTIONS)
+      .doc(id)
+      .get();
+
+    if (doc.exists) {
+      return {
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data()?.createdAt?.toDate(),
+        updatedAt: doc.data()?.updatedAt?.toDate(),
+      } as Transaction;
+    }
+    return null;
+  },
+
+  // Update transaction
+  updateTransaction: async (id: string, transaction: Partial<Transaction>) => {
+    return await firestore()
+      .collection(COLLECTIONS.TRANSACTIONS)
+      .doc(id)
+      .update({
+        ...transaction,
+        updatedAt: new Date(),
+      });
+  },
+
+  // Delete transaction
+  deleteTransaction: async (id: string) => {
+    return await firestore()
+      .collection(COLLECTIONS.TRANSACTIONS)
+      .doc(id)
+      .delete();
+  },
+
+  // Get balance for an employee
+  getEmployeeBalance: async (employeeId: string) => {
+    const transactions = await transactionService.getEmployeeTransactions(employeeId);
+    
+    let balance = 0;
+    transactions.forEach(transaction => {
+      if (transaction.type === 'credit') {
+        balance += transaction.amount;
+      } else {
+        balance -= transaction.amount;
+      }
+    });
+
+    return balance;
+  },
+};
+
 // Initialize Firestore indexes (run once)
 export const initializeFirestoreIndexes = () => {
   // These indexes should be created in Firebase Console:
   // 1. employees collection: name (ascending)
   // 2. attendance collection: __name__ (ascending) - for date-based queries
+  // 3. transactions collection: employeeId (ascending), date (descending)
+  // 4. transactions collection: date (ascending)
   console.log('Firestore indexes should be configured in Firebase Console');
 };

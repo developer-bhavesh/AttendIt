@@ -2,14 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Surface, Text, DataTable, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, ChevronRight, User, UserCheck, DollarSign, Clock, TrendingUp } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, User, UserCheck, DollarSign, Clock, TrendingUp, TrendingDown, Wallet } from 'lucide-react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import { useAttendanceStore } from '../store/attendanceStore';
+import { useTransactionStore } from '../store/transactionStore';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { getCurrentMonth, getMonthName, getPreviousMonth, getNextMonth, getMonthDates } from '../utils/dateUtils';
-import { Employee } from '../types';
+import { Employee, Transaction } from '../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = NativeStackScreenProps<RootStackParamList, 'EmployeeReport'>['route'];
@@ -19,12 +20,15 @@ export const EmployeeReportScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const employee = route.params?.employee;
   const { monthlyData, isLoading, loadMonthlyAttendance } = useAttendanceStore();
+  const { transactions, loadTransactions } = useTransactionStore();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [dailyAttendanceData, setDailyAttendanceData] = useState<{[date: string]: any}>({});
+  const [monthlyTransactions, setMonthlyTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     loadMonthlyAttendance(currentMonth.year, currentMonth.month);
     loadDailyAttendanceData();
+    loadMonthlyTransactions();
   }, [currentMonth]);
 
   const loadDailyAttendanceData = async () => {
@@ -44,10 +48,22 @@ export const EmployeeReportScreen: React.FC = () => {
     setDailyAttendanceData(dailyData);
   };
 
+  const loadMonthlyTransactions = async () => {
+    try {
+      const startDate = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}-01`;
+      const endDate = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}-31`;
+      await loadTransactions(employee.id, startDate, endDate);
+      setMonthlyTransactions(transactions);
+    } catch (error) {
+      console.log('Error loading transactions:', error);
+    }
+  };
+
   useEffect(() => {
     // Refresh when screen comes into focus
     const unsubscribe = navigation.addListener('focus', () => {
       loadMonthlyAttendance(currentMonth.year, currentMonth.month);
+      loadMonthlyTransactions();
     });
     return unsubscribe;
   }, [navigation, currentMonth]);
@@ -76,13 +92,29 @@ export const EmployeeReportScreen: React.FC = () => {
     const overtimeEarnings = totalOvertimeHours * hourlyRate;
     const totalEarnings = regularEarnings + overtimeEarnings;
     
+    // Calculate credits and debits
+    let totalCredits = 0;
+    let totalDebits = 0;
+    
+    transactions.forEach(transaction => {
+      if (transaction.type === 'credit') {
+        totalCredits += transaction.amount;
+      } else {
+        totalDebits += transaction.amount;
+      }
+    });
+    
+    const netSalary = totalEarnings + totalCredits - totalDebits;
+    
     return {
       baseSalary: regularEarnings,
       totalEarnings,
       regularHours: totalRegularHours,
       overtimeHours: totalOvertimeHours,
       overtimeEarnings,
-      deductions: 0,
+      totalCredits,
+      totalDebits,
+      netSalary,
       workingDays: employeeData?.presentDays || 0,
       totalWorkingDays: monthDates.length,
       hourlyRate,
@@ -200,18 +232,112 @@ export const EmployeeReportScreen: React.FC = () => {
                 <View style={styles.divider} />
                 
                 <View style={[styles.salaryRow, styles.totalRow]}>
-                  <Text style={styles.totalLabel}>Total Earnings:</Text>
+                  <Text style={styles.totalLabel}>Monthly Earnings:</Text>
                   <Text style={styles.totalValue}>₹{salaryData.totalEarnings.toFixed(2)}</Text>
                 </View>
                 
+                {(salaryData.totalCredits > 0 || salaryData.totalDebits > 0) && (
+                  <>
+                    <View style={styles.adjustmentsHeader}>
+                      <Text style={styles.adjustmentsHeaderText}>Adjustments</Text>
+                    </View>
+                    
+                    {salaryData.totalCredits > 0 && (
+                      <View style={styles.salaryRow}>
+                        <Text style={styles.creditLabel}>Additional Credits (+):</Text>
+                        <Text style={styles.creditValue}>+₹{salaryData.totalCredits.toFixed(2)}</Text>
+                      </View>
+                    )}
+                    
+                    {salaryData.totalDebits > 0 && (
+                      <View style={styles.salaryRow}>
+                        <Text style={styles.deductionLabel}>Deductions (-):</Text>
+                        <Text style={styles.deductionValue}>-₹{salaryData.totalDebits.toFixed(2)}</Text>
+                      </View>
+                    )}
+                    
+                    <View style={styles.divider} />
+                  </>
+                )}
+                
                 <View style={[styles.salaryRow, styles.netRow]}>
-                  <Text style={styles.netLabel}>Net Salary:</Text>
+                  <Text style={styles.netLabel}>Net Payable Salary:</Text>
                   <Text style={styles.netValue}>
-                    ₹{salaryData.totalEarnings.toFixed(2)}
+                    ₹{salaryData.netSalary.toFixed(2)}
                   </Text>
                 </View>
+                
+                {(salaryData.totalCredits > 0 || salaryData.totalDebits > 0) && (
+                  <View style={styles.calculationNote}>
+                    <Text style={styles.calculationNoteText}>
+                      Net Salary = Monthly Earnings ({salaryData.totalEarnings.toFixed(2)})
+                      {salaryData.totalCredits > 0 && ` + Credits (${salaryData.totalCredits.toFixed(2)})`}
+                      {salaryData.totalDebits > 0 && ` - Deductions (${salaryData.totalDebits.toFixed(2)})`}
+                    </Text>
+                  </View>
+                )}
               </View>
             </Surface>
+
+            {transactions.length > 0 && (
+              <Surface style={styles.transactionsCard} elevation={0}>
+                <View style={styles.transactionsHeader}>
+                  <Wallet size={24} color="#059669" />
+                  <Text style={styles.transactionsTitle}>Monthly Adjustments</Text>
+                </View>
+                <Text style={styles.transactionsSubtitle}>
+                  Additional credits and deductions for this month
+                </Text>
+                
+                {transactions.map((transaction) => (
+                  <View key={transaction.id} style={styles.transactionItem}>
+                    <View style={styles.transactionLeft}>
+                      {transaction.type === 'credit' ? (
+                        <TrendingUp size={20} color="#059669" />
+                      ) : (
+                        <TrendingDown size={20} color="#DC2626" />
+                      )}
+                      <View style={styles.transactionInfo}>
+                        <Text style={styles.transactionType}>
+                          {transaction.type === 'credit' ? 'Credit' : 'Debit'}
+                        </Text>
+                        <Text style={styles.transactionDate}>
+                          {new Date(transaction.date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </Text>
+                        {transaction.description && (
+                          <Text style={styles.transactionDescription}>
+                            {transaction.description}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <Text
+                      style={[
+                        styles.transactionAmount,
+                        transaction.type === 'credit' ? styles.creditAmount : styles.debitAmount,
+                      ]}
+                    >
+                      {transaction.type === 'credit' ? '+' : '-'}₹{transaction.amount.toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+                
+                <View style={styles.transactionsSummary}>
+                  <View style={styles.transactionSummaryRow}>
+                    <Text style={styles.transactionSummaryLabel}>Total Credits:</Text>
+                    <Text style={styles.creditValue}>+₹{salaryData.totalCredits.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.transactionSummaryRow}>
+                    <Text style={styles.transactionSummaryLabel}>Total Debits:</Text>
+                    <Text style={styles.deductionValue}>-₹{salaryData.totalDebits.toFixed(2)}</Text>
+                  </View>
+                </View>
+              </Surface>
+            )}
           </View>
         )}
 
@@ -247,7 +373,23 @@ export const EmployeeReportScreen: React.FC = () => {
                 const totalHours = regularHours + overtimeHours;
                 const regularEarnings = regularHours * employee.hourlyRate;
                 const overtimeEarnings = overtimeHours * employee.hourlyRate;
-                const dailyEarnings = regularEarnings + overtimeEarnings;
+                let dailyEarnings = regularEarnings + overtimeEarnings;
+                
+                // Get transactions for this date
+                const dayTransactions = transactions.filter(t => t.date === date);
+                let dayCredits = 0;
+                let dayDebits = 0;
+                dayTransactions.forEach(t => {
+                  if (t.type === 'credit') {
+                    dayCredits += t.amount;
+                  } else {
+                    dayDebits += t.amount;
+                  }
+                });
+                
+                // Add credits and subtract debits from daily earnings
+                const dailyNetEarnings = dailyEarnings + dayCredits - dayDebits;
+                const hasTransactions = dayTransactions.length > 0;
                 
                 return (
                   <DataTable.Row key={date} style={styles.tableRow}>
@@ -274,14 +416,28 @@ export const EmployeeReportScreen: React.FC = () => {
                       <View style={styles.earningsBreakdown}>
                         <Text style={[
                           styles.earningsText,
-                          isPresent ? styles.positiveEarnings : styles.zeroEarnings
+                          dailyNetEarnings > 0 ? styles.positiveEarnings : styles.zeroEarnings
                         ]}>
-                          ₹{dailyEarnings.toFixed(2)}
+                          ₹{dailyNetEarnings.toFixed(2)}
                         </Text>
                         {overtimeHours > 0 && (
                           <Text style={styles.overtimeEarningsText}>
                             (₹{overtimeEarnings.toFixed(2)} OT)
                           </Text>
+                        )}
+                        {hasTransactions && (
+                          <View style={styles.transactionIndicators}>
+                            {dayCredits > 0 && (
+                              <Text style={styles.dailyCreditText}>
+                                +₹{dayCredits.toFixed(2)}
+                              </Text>
+                            )}
+                            {dayDebits > 0 && (
+                              <Text style={styles.dailyDebitText}>
+                                -₹{dayDebits.toFixed(2)}
+                              </Text>
+                            )}
+                          </View>
                         )}
                       </View>
                     </DataTable.Cell>
@@ -313,9 +469,29 @@ export const EmployeeReportScreen: React.FC = () => {
                 </Text>
               </View>
               <View style={[styles.summaryRow, styles.totalSummaryRow]}>
-                <Text style={styles.totalSummaryLabel}>Monthly Total:</Text>
+                <Text style={styles.totalSummaryLabel}>Monthly Earnings:</Text>
                 <Text style={styles.totalSummaryValue}>₹{salaryData.totalEarnings.toFixed(2)}</Text>
               </View>
+              {(salaryData.totalCredits > 0 || salaryData.totalDebits > 0) && (
+                <>
+                  {salaryData.totalCredits > 0 && (
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Total Credits:</Text>
+                      <Text style={[styles.summaryRowValue, styles.creditValue]}>+₹{salaryData.totalCredits.toFixed(2)}</Text>
+                    </View>
+                  )}
+                  {salaryData.totalDebits > 0 && (
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryRowLabel}>Total Debits:</Text>
+                      <Text style={[styles.summaryRowValue, styles.deductionValue]}>-₹{salaryData.totalDebits.toFixed(2)}</Text>
+                    </View>
+                  )}
+                  <View style={[styles.summaryRow, styles.netPayableSummaryRow]}>
+                    <Text style={styles.netPayableSummaryLabel}>Net Payable Salary:</Text>
+                    <Text style={styles.netPayableSummaryValue}>₹{salaryData.netSalary.toFixed(2)}</Text>
+                  </View>
+                </>
+              )}
             </View>
           </Surface>
         </View>
@@ -527,6 +703,130 @@ const styles = StyleSheet.create({
     color: '#059669',
     fontWeight: '700',
   },
+  creditLabel: {
+    fontSize: 14,
+    color: '#059669',
+    fontWeight: '500',
+  },
+  creditValue: {
+    fontSize: 14,
+    color: '#059669',
+    fontWeight: '600',
+  },
+  adjustmentsHeader: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  adjustmentsHeaderText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  calculationNote: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
+  },
+  calculationNoteText: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  transactionsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 24,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  transactionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  transactionsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 8,
+  },
+  transactionsSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  transactionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  transactionInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  transactionType: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  transactionDate: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  transactionDescription: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  creditAmount: {
+    color: '#059669',
+  },
+  debitAmount: {
+    color: '#DC2626',
+  },
+  transactionsSummary: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 2,
+    borderTopColor: '#E5E7EB',
+  },
+  transactionSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  transactionSummaryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
   calendarCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -664,5 +964,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#F59E0B',
     fontWeight: '500',
+  },
+  transactionIndicators: {
+    marginTop: 4,
+    gap: 2,
+  },
+  dailyCreditText: {
+    fontSize: 10,
+    color: '#059669',
+    fontWeight: '600',
+  },
+  dailyDebitText: {
+    fontSize: 10,
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  netPayableSummaryRow: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 2,
+    borderColor: '#059669',
+  },
+  netPayableSummaryLabel: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  netPayableSummaryValue: {
+    fontSize: 20,
+    color: '#059669',
+    fontWeight: '700',
   },
 });

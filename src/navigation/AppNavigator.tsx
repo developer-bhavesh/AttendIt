@@ -14,6 +14,8 @@ import { EditEmployeeScreen } from '../screens/EditEmployeeScreen';
 import { EmployeeReportScreen } from '../screens/EmployeeReportScreen';
 import { AttendanceScreen } from '../screens/AttendanceScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
+import { CreditDebitScreen } from '../screens/CreditDebitScreen';
+import { PayslipScreen } from '../screens/PayslipScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -116,6 +118,22 @@ export const AppNavigator: React.FC = () => {
           component={EmployeeReportScreen}
           options={{
             title: 'Employee Report',
+          }}
+        />
+        <Stack.Screen
+          name="CreditDebit"
+          component={CreditDebitScreen}
+          options={{
+            title: 'Credit/Debit',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Payslip"
+          component={PayslipScreen}
+          options={{
+            title: 'Generate Payslip',
+            headerRight,
           }}
         />
       </Stack.Navigator>

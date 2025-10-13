@@ -3,7 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { View, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { Text, Button, FAB, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Users, Calendar, BarChart3, Clock, Plus, TrendingUp } from 'lucide-react-native';
+import { Users, Calendar, BarChart3, Clock, Plus, TrendingUp, Wallet, FileText } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
@@ -139,6 +139,30 @@ export const DashboardScreen: React.FC = () => {
                 icon={() => <Users size={18} color="#374151" />}
               >
                 Employees
+              </Button>
+            </View>
+
+            <View style={styles.bottomActions}>
+              <Button
+                mode="contained"
+                onPress={() => navigation.navigate('CreditDebit')}
+                style={styles.creditDebitButton}
+                buttonColor="#059669"
+                labelStyle={styles.creditDebitLabel}
+                icon={() => <Wallet size={20} color="white" />}
+              >
+                Credit/Debit
+              </Button>
+
+              <Button
+                mode="contained"
+                onPress={() => navigation.navigate('Payslip')}
+                style={styles.payslipButton}
+                buttonColor="#0891B2"
+                labelStyle={styles.payslipLabel}
+                icon={() => <FileText size={20} color="white" />}
+              >
+                Payslip
               </Button>
             </View>
           </Surface>
@@ -288,6 +312,38 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderColor: '#E5E7EB',
     borderWidth: 1.5,
+  },
+  bottomActions: {
+    marginTop: 16,
+    gap: 12,
+  },
+  creditDebitButton: {
+    borderRadius: 12,
+    paddingVertical: 8,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  creditDebitLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  payslipButton: {
+    borderRadius: 12,
+    paddingVertical: 8,
+    shadowColor: '#0891B2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  payslipLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   fab: {
     position: 'absolute',
