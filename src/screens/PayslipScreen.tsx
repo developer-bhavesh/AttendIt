@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Platform, Modal, FlatList, TouchableOpacity, Pressable, Image, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Platform, Modal, FlatList, TouchableOpacity, Pressable, Image, Linking, PermissionsAndroid } from 'react-native';
 import { Surface, Text, Button, IconButton, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FileText, Calendar, User, Search, X, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -16,6 +16,7 @@ import { generatePayslipHTML } from '../utils/payslipTemplate';
 import { Employee } from '../types';
 import { generatePDF } from 'react-native-html-to-pdf';
 import Share from 'react-native-share';
+import RNFS from 'react-native-fs';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 // Import the logo
@@ -199,17 +200,92 @@ export const PayslipScreen: React.FC = () => {
     }
   }, [selectedEmployee, selectedMonth, dateRangeMode, customStartDate, customEndDate]);
 
+  const requestStoragePermission = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') {
+      return true;
+    }
+
+    try {
+      const androidVersion = Platform.Version;
+      console.log('Android version:', androidVersion);
+
+      // For Android 13+ (API 33+), we don't need WRITE_EXTERNAL_STORAGE
+      if (androidVersion >= 33) {
+        console.log('Android 13+: No storage permission needed');
+        return true;
+      }
+
+      // For Android 11-12 (API 30-32)
+      if (androidVersion >= 30) {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          {
+            title: 'Storage Permission Required',
+            message: 'This app needs access to save PDF files to your Download folder',
+            buttonPositive: 'Grant',
+            buttonNegative: 'Deny',
+          }
+        );
+        
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('Storage permission granted');
+          return true;
+        } else {
+          console.log('Storage permission denied');
+          Alert.alert(
+            'Permission Required',
+            'Storage permission is needed to save PDF files to your device. Please grant permission in app settings.',
+            [{ text: 'OK' }]
+          );
+          return false;
+        }
+      }
+
+      // For Android 10 and below (API 29 and below)
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        {
+          title: 'Storage Permission Required',
+          message: 'This app needs access to save PDF files to your Download folder',
+          buttonPositive: 'Grant',
+          buttonNegative: 'Deny',
+        }
+      );
+
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('Storage permission granted');
+        return true;
+      } else {
+        console.log('Storage permission denied');
+        Alert.alert(
+          'Permission Required',
+          'Storage permission is needed to save PDF files.',
+          [{ text: 'OK' }]
+        );
+        return false;
+      }
+    } catch (err) {
+      console.error('Permission request error:', err);
+      return false;
+    }
+  };
+
   const handleGeneratePDF = async () => {
     if (!selectedEmployee) {
       Alert.alert('Error', 'Please select an employee');
       return;
     }
 
+    // Request storage permission
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      return;
+    }
+
     setIsGenerating(true);
 
     try {
-      const employeeData = monthlyData.find(emp => emp.employeeId === selectedEmployee.id);
-      
+      // Load fresh data for payslip generation
       const startDate = dateRangeMode === 'month'
         ? `${selectedMonth.year}-${String(selectedMonth.month).padStart(2, '0')}-01`
         : customStartDate.toISOString().split('T')[0];
@@ -225,23 +301,45 @@ export const PayslipScreen: React.FC = () => {
       console.log('=== PAYSLIP GENERATION DEBUG ===');
       console.log('Date range:', startDate, 'to', endDate);
       console.log('Total dates:', monthDates.length);
-      console.log('Daily attendance records loaded:', Object.keys(dailyAttendanceData).length);
-      console.log('Transactions loaded:', transactions.length);
-      console.log('Employee data from monthlyData:', employeeData);
       console.log('Employee hourly rate:', selectedEmployee.hourlyRate);
       console.log('Employee standard hours:', selectedEmployee.standardHours);
-      
-      // Debug daily attendance data
-      console.log('Sample daily attendance data:', Object.keys(dailyAttendanceData).slice(0, 5).map(date => ({
+
+      // Load fresh daily attendance data
+      const { attendanceService } = require('../services/firebase');
+      const freshDailyData: { [date: string]: any } = {};
+
+      console.log('Loading fresh daily attendance for PDF generation...');
+      for (const date of monthDates) {
+        try {
+          const dayRecord = await attendanceService.getAttendanceByDate(date);
+          if (dayRecord && dayRecord[selectedEmployee.id]) {
+            freshDailyData[date] = dayRecord[selectedEmployee.id];
+            console.log('Found attendance for', date, ':', dayRecord[selectedEmployee.id]);
+          }
+        } catch (error) {
+          console.log('Error loading daily data for', date, error);
+        }
+      }
+
+      console.log('Fresh daily records loaded:', Object.keys(freshDailyData).length);
+      console.log('Sample fresh data:', Object.keys(freshDailyData).slice(0, 3).map(date => ({
         date,
-        data: dailyAttendanceData[date]
+        data: freshDailyData[date]
       })));
+
+      // Load fresh transactions
+      await loadTransactions(selectedEmployee.id, startDate, endDate);
+      console.log('Transactions loaded:', transactions.length);
+
+      // Load monthly attendance
+      const employeeData = monthlyData.find(emp => emp.employeeId === selectedEmployee.id);
+      console.log('Employee data from monthlyData:', employeeData);
 
       const payslipData = calculatePayslipData(
         selectedEmployee,
         employeeData,
         transactions,
-        dailyAttendanceData,
+        freshDailyData,
         monthDates,
         startDate,
         endDate
@@ -260,45 +358,70 @@ export const PayslipScreen: React.FC = () => {
       console.log('Net salary:', payslipData.netSalary);
       console.log('Daily records count:', payslipData.dailyRecords.length);
 
-      // Get the logo URI from the bundled asset
-      const logoSource = Image.resolveAssetSource(logoIcon);
-      const logoUri = logoSource ? logoSource.uri : undefined;
+      // Use text-based logo for PDF (no image loading needed)
+      const logoBase64 = ''; // Empty string will trigger the AL logo in template
+      console.log('Using AL text logo for PDF');
 
-      const htmlContent = generatePayslipHTML(payslipData, logoUri);
+      const htmlContent = generatePayslipHTML(payslipData, logoBase64);
 
+      const fileName = `Payslip_${selectedEmployee.name.replace(/\s+/g, '_')}_${payslipData.period.monthYear.replace(/\s+/g, '_')}`;
+      
+      // For Android, use Download folder as it's more accessible
+      // Documents folder requires special permissions on Android 10+
       const options = {
         html: htmlContent,
-        fileName: `Payslip_${selectedEmployee.name.replace(/\s+/g, '_')}_${payslipData.period.monthYear.replace(/\s+/g, '_')}`,
-        directory: 'Documents',
+        fileName: fileName,
+        directory: Platform.OS === 'android' ? 'Download' : 'Documents',
       };
 
+      console.log('Saving PDF with options:', options);
       const file = await generatePDF(options);
       
       console.log('PDF Generation Result:', file);
+      console.log('PDF initially saved to:', file.filePath);
       
-      setIsGenerating(false);
-
       // Validate file path
       if (!file || !file.filePath) {
         console.error('Invalid file path:', file);
+        setIsGenerating(false);
         Alert.alert('Error', 'Failed to generate PDF file. Please try again.');
         return;
       }
 
-      console.log('PDF file path:', file.filePath);
+      // Copy file to public Download folder for Android
+      let finalFilePath = file.filePath;
+      if (Platform.OS === 'android') {
+        try {
+          const publicDownloadPath = `${RNFS.DownloadDirectoryPath}/${fileName}.pdf`;
+          console.log('Copying to public Download folder:', publicDownloadPath);
+          
+          // Copy the file to public Download folder
+          await RNFS.copyFile(file.filePath, publicDownloadPath);
+          finalFilePath = publicDownloadPath;
+          
+          console.log('File copied successfully to:', finalFilePath);
+        } catch (copyError) {
+          console.error('Error copying to Download folder:', copyError);
+          // If copy fails, use original path
+          console.log('Using original path:', file.filePath);
+        }
+      }
+      
+      setIsGenerating(false);
+      console.log('Final PDF file path:', finalFilePath);
 
       // Ask user what to do with the PDF
       Alert.alert(
         'PDF Generated',
-        'Payslip has been generated successfully!',
+        `Payslip has been generated successfully!`,
         [
           {
             text: 'Share via WhatsApp',
-            onPress: () => shareViaWhatsApp(file.filePath!),
+            onPress: () => shareViaWhatsApp(finalFilePath),
           },
           {
             text: 'Share',
-            onPress: () => shareFile(file.filePath!),
+            onPress: () => shareFile(finalFilePath),
           },
           {
             text: 'OK',
@@ -321,51 +444,48 @@ export const PayslipScreen: React.FC = () => {
       }
 
       console.log('Attempting to share file:', filePath);
+      console.log('File path type:', typeof filePath);
 
-      // Try different approaches for Android
-      if (Platform.OS === 'android') {
-        try {
-          // Approach 1: Use url (singular) with file:// prefix
-          await Share.open({
-            url: `file://${filePath}`,
-            failOnCancel: false,
-          });
-        } catch (err1) {
-          console.log('Approach 1 failed, trying approach 2:', err1);
-          try {
-            // Approach 2: Use urls (plural) array
-            await Share.open({
-              urls: [`file://${filePath}`],
-              failOnCancel: false,
-            });
-          } catch (err2) {
-            console.log('Approach 2 failed, trying approach 3:', err2);
-            try {
-              // Approach 3: Use url without file:// prefix
-              await Share.open({
-                url: filePath,
-                failOnCancel: false,
-              });
-            } catch (err3) {
-              console.log('All share approaches failed, opening file directly:', err3);
-              // Final fallback: Open the file with default PDF viewer
-              const supported = await Linking.canOpenURL(`file://${filePath}`);
-              if (supported) {
-                await Linking.openURL(`file://${filePath}`);
-                Alert.alert('Success', 'PDF opened. You can share it from your PDF viewer.');
-              } else {
-                throw new Error('Cannot open PDF file');
-              }
-            }
-          }
-        }
-      } else {
-        // iOS approach
-        await Share.open({
-          url: `file://${filePath}`,
+      // For Android, ensure proper file URI format
+      const fileUri = Platform.OS === 'android' 
+        ? (filePath.startsWith('file://') ? filePath : `file://${filePath}`)
+        : filePath;
+
+      console.log('Formatted file URI:', fileUri);
+
+      try {
+        const shareOptions = {
+          title: 'Share Payslip PDF',
+          url: fileUri,
           type: 'application/pdf',
-          failOnCancel: false,
-        });
+        };
+        
+        console.log('Share options:', shareOptions);
+        const result = await Share.open(shareOptions);
+        console.log('Share result:', result);
+      } catch (shareError: any) {
+        console.error('Share error:', shareError);
+        
+        // If share fails, try to open the file directly
+        if (Platform.OS === 'android') {
+          try {
+            console.log('Attempting to open file with Linking...');
+            const canOpen = await Linking.canOpenURL(fileUri);
+            console.log('Can open URL:', canOpen);
+            
+            if (canOpen) {
+              await Linking.openURL(fileUri);
+              Alert.alert('PDF Opened', 'The PDF has been opened. You can share it from your PDF viewer.');
+            } else {
+              Alert.alert('Error', 'Cannot open PDF file. Please check if you have a PDF viewer installed.');
+            }
+          } catch (linkError) {
+            console.error('Linking error:', linkError);
+            Alert.alert('Error', 'Failed to open or share the PDF file.');
+          }
+        } else {
+          throw shareError;
+        }
       }
     } catch (error: any) {
       if (error.message !== 'User did not share') {
@@ -384,42 +504,32 @@ export const PayslipScreen: React.FC = () => {
 
       console.log('Attempting to share via WhatsApp:', filePath);
 
-      // Try different approaches for Android
-      if (Platform.OS === 'android') {
-        try {
-          // Approach 1: Use url (singular) with file:// prefix
-          await Share.shareSingle({
-            url: `file://${filePath}`,
-            social: Share.Social.WHATSAPP as any,
-            failOnCancel: false,
-          });
-        } catch (err1) {
-          console.log('WhatsApp Approach 1 failed, trying approach 2:', err1);
-          try {
-            // Approach 2: Use urls (plural) array
-            await Share.shareSingle({
-              urls: [`file://${filePath}`],
-              social: Share.Social.WHATSAPP as any,
-              failOnCancel: false,
-            });
-          } catch (err2) {
-            console.log('WhatsApp Approach 2 failed, trying approach 3:', err2);
-            // Approach 3: Use url without file:// prefix
-            await Share.shareSingle({
-              url: filePath,
-              social: Share.Social.WHATSAPP as any,
-              failOnCancel: false,
-            });
-          }
-        }
-      } else {
-        // iOS approach
-        await Share.shareSingle({
-          url: `file://${filePath}`,
+      // For Android, ensure proper file URI format
+      const fileUri = Platform.OS === 'android' 
+        ? (filePath.startsWith('file://') ? filePath : `file://${filePath}`)
+        : filePath;
+
+      console.log('WhatsApp file URI:', fileUri);
+
+      try {
+        const whatsappOptions = {
+          title: 'Share Payslip via WhatsApp',
+          url: fileUri,
           type: 'application/pdf',
           social: Share.Social.WHATSAPP as any,
-          failOnCancel: false,
-        });
+        };
+        
+        console.log('WhatsApp share options:', whatsappOptions);
+        const result = await Share.shareSingle(whatsappOptions);
+        console.log('WhatsApp share result:', result);
+      } catch (shareError: any) {
+        console.error('WhatsApp share error:', shareError);
+        
+        if (shareError.message && shareError.message.includes('not installed')) {
+          Alert.alert('WhatsApp Not Found', 'Please make sure WhatsApp is installed on your device.');
+        } else if (shareError.message !== 'User did not share') {
+          Alert.alert('Error', `Failed to share via WhatsApp: ${shareError.message || 'Unknown error'}`);
+        }
       }
     } catch (error: any) {
       if (error.message !== 'User did not share') {

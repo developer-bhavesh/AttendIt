@@ -224,8 +224,13 @@ export const generatePayslipHTML = (data: PayslipData, logoUri?: string): string
       <div class="container">
         <!-- Header -->
         <div class="header">
-          <div style="width: 150px; height: 150px; border-radius: 50%; border: 3px solid #F59E0B; padding: 10px; display: flex; align-items: center; justify-content: center; background-color: #FFF;">
-            <img src="${logoBase64}" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;" />
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; background-color: #F59E0B; border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              <div style="font-size: 42pt; font-weight: 700; color: #FFF;">AL</div>
+            </div>
+            <div>
+              <div style="font-size: 20pt; font-weight: 700; color: #F59E0B; margin-bottom: 4px;">Atmiya Locker</div>
+            </div>
           </div>
           <div style="text-align: right; flex: 1;">
             <div style="font-size: 18pt; font-weight: 700; color: #000;">PAYSLIP</div>
@@ -365,7 +370,7 @@ export const generatePayslipHTML = (data: PayslipData, logoUri?: string): string
         <div class="footer">
           <p>This is a computer-generated payslip and does not require a signature.</p>
           <p style="margin-top: 8px;">Generated on ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-          <p style="margin-top: 16px; font-weight: 600;">Amitya Locker - Employee Management System</p>
+          <p style="margin-top: 16px; font-weight: 600;">Atmiya Locker</p>
         </div>
       </div>
     </body>
